@@ -1,256 +1,191 @@
 # SkinSight
 
-## Explainable Skin Lesion Classification using Transfer Learning
+Explainable skin-lesion classification with EfficientNetB0, Grad-CAM, and a Streamlit research workspace.
 
-SkinSight is a research and educational prototype for **multi-class classification of dermatoscopic skin-lesion images** using **EfficientNetB0 transfer learning** with **Grad-CAM explainability**.
+SkinSight is an academic and educational prototype built around the HAM10000 dermatoscopic image dataset. It predicts one of seven lesion classes, exposes the full probability distribution, and produces a Grad-CAM visualization of image regions that influenced the model output.
 
-The project is based on the **HAM10000 dataset** and classifies images into seven skin-lesion categories.
+> **Medical disclaimer:** SkinSight is not a medical diagnostic system. Its predictions and visual explanations may be incorrect and must not be used for diagnosis, treatment, triage, or clinical decision-making.
 
-> **Important:** SkinSight is an educational/research prototype and is **not a medical diagnostic system**. Its predictions and visual explanations must not be used for clinical diagnosis or treatment decisions.
+## Highlights
 
----
+- Seven-class dermatoscopic image classification
+- EfficientNetB0 transfer learning with fine-tuning
+- Class weighting for imbalanced training data
+- Lesion-aware train, validation, and test splits
+- Accuracy, loss, ROC, confusion-matrix, and class-distribution visualizations
+- Grad-CAM explainability for individual predictions
+- Streamlit workspace with analysis, evaluation, dataset, and research pages
+- Light and dark themes through Streamlit's native theme system
+- Downloadable JSON analysis reports
 
-## Features
+## Supported classes
 
-* Seven-class skin lesion classification
-* EfficientNetB0 transfer-learning model
-* Two-stage training with fine-tuning
-* Class-weight handling for class imbalance
-* Train/validation/test dataset splitting
-* Confusion matrix evaluation
-* ROC curve visualization
-* Training accuracy and loss visualization
-* Class distribution visualization
-* Command-line prediction
-* Grad-CAM explainability
-* Streamlit web interface
-* Modular Python project structure
-
----
-
-## Supported Classes
-
-| Code    | Class                                         |
-| ------- | --------------------------------------------- |
+| Code | Class |
+| --- | --- |
 | `akiec` | Actinic keratoses / intraepithelial carcinoma |
-| `bcc`   | Basal cell carcinoma                          |
-| `bkl`   | Benign keratosis-like lesions                 |
-| `df`    | Dermatofibroma                                |
-| `mel`   | Melanoma                                      |
-| `nv`    | Melanocytic nevi                              |
-| `vasc`  | Vascular lesions                              |
+| `bcc` | Basal cell carcinoma |
+| `bkl` | Benign keratosis-like lesions |
+| `df` | Dermatofibroma |
+| `mel` | Melanoma |
+| `nv` | Melanocytic nevi |
+| `vasc` | Vascular lesions |
 
-The class order used by the trained model is stored in:
+The model's class order is stored in [`models/class_names.json`](models/class_names.json).
 
-```text
-models/class_names.json
+## Current evaluation snapshot
+
+These values describe the current saved evaluation artifacts. Retraining can produce different results.
+
+| Metric | Value |
+| --- | ---: |
+| Test accuracy | 67.55% |
+| Macro F1 | 50.92% |
+| Weighted F1 | 70.29% |
+| Macro ROC-AUC | 90.18% |
+
+Accuracy and weighted F1 are influenced by class distribution. Macro F1 gives every class equal weight. ROC-AUC measures ranking quality and should not be interpreted as clinical reliability.
+
+## Architecture
+
+### End-to-end workflow
+
+```mermaid
+flowchart LR
+    A[HAM10000 metadata and images] --> B[Validate metadata]
+    B --> C[Lesion-aware train / validation / test split]
+    C --> D[tf.data input pipeline]
+    D --> E[EfficientNetB0 training]
+    E --> F[Evaluation artifacts]
+    E --> G[Saved Keras model]
+    G --> H[Streamlit analysis workspace]
+    H --> I[Prediction and probabilities]
+    H --> J[Grad-CAM explanation]
 ```
 
----
+### Model architecture
 
-# Project Architecture
+```mermaid
+flowchart TD
+    A[RGB image<br/>224 x 224 x 3] --> B[EfficientNetB0<br/>ImageNet-pretrained backbone]
+    B --> C[Global average pooling]
+    C --> D[Dropout]
+    D --> E[Dense softmax layer]
+    E --> F[Seven lesion probabilities]
+    B --> G[Grad-CAM feature layer]
+    G --> H[Class-specific heatmap]
+    H --> I[Overlay on original image]
+```
+
+### Two-stage training
+
+```mermaid
+flowchart LR
+    A[Initialize EfficientNetB0] --> B[Freeze backbone]
+    B --> C[Train classification head<br/>learning rate 1e-3]
+    C --> D[Load best checkpoint]
+    D --> E[Unfreeze upper backbone layers]
+    E --> F[Keep BatchNorm layers frozen]
+    F --> G[Fine-tune<br/>learning rate 1e-5]
+    G --> H[Save best model and history]
+```
+
+The first stage adapts the classification head. The second stage makes a smaller update to the upper EfficientNet layers while keeping BatchNormalization layers stable.
+
+## Project structure
 
 ```text
 SkinSight/
-│
 ├── app/
-│   └── app.py
-│
+│   ├── streamlit_app.py                 # Navigation entrypoint
+│   ├── app.py                            # Analyze page and Grad-CAM workflow
+│   └── app_pages/
+│       ├── about.py                      # Research notes and limitations
+│       ├── dataset_explorer.py           # HAM10000 metadata views
+│       └── model_performance.py          # Training and evaluation gallery
 ├── data/
-│   ├── raw/
-│   │   ├── HAM10000_metadata.csv
-│   │   └── images/
-│   │       └── *.jpg
-│   │
-│   ├── processed/
-│   └── splits/
-│       ├── train.csv
-│       ├── val.csv
-│       └── test.csv
-│
-├── docs/
-│   └── PROJECT_STATUS.md
-│
-├── models/
-│   ├── class_names.json
-│   ├── class_weights.json
-│   ├── training_history.json
-│   └── skinsight_efficientnetb0.keras
-│
-├── outputs/
-│   ├── figures/
-│   │   ├── class_distribution.png
-│   │   ├── confusion_matrix.png
-│   │   ├── roc_curves.png
-│   │   ├── training_accuracy.png
-│   │   └── training_loss.png
-│   │
-│   └── gradcam/
-│       └── ISIC_0027419_gradcam.jpg
-│
-├── src/
-│   ├── config.py
-│   ├── data_preparation.py
-│   ├── dataset.py
-│   ├── evaluate.py
-│   ├── gradcam.py
-│   ├── model.py
-│   ├── predict.py
-│   ├── train.py
-│   ├── visualize_dataset.py
-│   ├── visualize_roc.py
-│   └── visualize_training.py
-│
-├── .gitignore
-├── README.md
-└── requirements.txt
+│   ├── raw/                              # Local HAM10000 files
+│   ├── processed/                        # Generated processed data
+│   └── splits/                           # Generated split CSV files
+├── docs/                                 # Project documentation
+├── models/                               # Model metadata and local artifacts
+├── outputs/                              # Figures and Grad-CAM images
+├── src/                                  # Preparation, training, evaluation, inference
+├── .streamlit/config.toml                # Light and dark theme tokens
+├── mise.toml                             # Python 3.10 declaration
+├── requirements.txt
+└── README.md
 ```
 
----
+## Requirements
 
-# 1. Prerequisites
+- Python 3.10.x
+- Git
+- A local HAM10000 dataset copy
+- Enough disk space for TensorFlow, the dataset, and generated model artifacts
 
-Install the following before setting up the project:
+Python 3.10 is intentional. The TensorFlow range in `requirements.txt` is compatible with Python 3.10, while newer Python versions may not have matching TensorFlow wheels.
 
-* Git
-* Python 3.10 or compatible Python version
-* VS Code recommended
-* Windows PowerShell / Terminal
+## Quick start
 
-Check the installations:
+### Using mise
+
+The repository includes [`mise.toml`](mise.toml) with Python 3.10 configured.
+
+```bash
+mise install
+mise exec -- python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+On Windows PowerShell:
 
 ```powershell
+mise install
+mise exec -- python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Verify the active interpreter before installing:
+
+```bash
 python --version
-git --version
+python -c "import sys; print(sys.executable)"
 ```
 
-The project has been developed and tested in a Python virtual environment using TensorFlow.
+The version should be Python 3.10.x and the executable should be inside `.venv` after activation.
 
----
+### Without mise
 
-# 2. Clone the Repository
-
-Open PowerShell and run:
-
-```powershell
-git clone https://github.com/Balaji190605/SkinSight.git
+```bash
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-Move into the project:
+## Dataset setup
 
-```powershell
-cd SkinSight
-```
-
-Verify:
-
-```powershell
-git status
-```
-
-You should see the `main` branch and a clean working tree.
-
----
-
-# 3. Create a Virtual Environment
-
-From inside the `SkinSight` directory:
-
-```powershell
-python -m venv .venv
-```
-
-Activate it:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-After activation, the terminal should show:
+HAM10000 is not bundled with this repository. Download it from an authorized source and place it here:
 
 ```text
-(.venv) PS A:\SkinSight\SkinSight>
+data/raw/
+├── HAM10000_metadata.csv
+└── images/
+    ├── ISIC_0024306.jpg
+    ├── ISIC_0024307.jpg
+    └── ...
 ```
 
-If PowerShell blocks script execution, run:
+The metadata file must include at least `image_id` and `dx`, where `dx` contains the lesion class code.
 
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+Prepare the dataset and generate split files:
 
-Then activate the environment again:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
----
-
-# 4. Install Dependencies
-
-Install the required Python packages:
-
-```powershell
-pip install -r requirements.txt
-```
-
-Verify TensorFlow:
-
-```powershell
-python -c "import tensorflow as tf; print(tf.__version__)"
-```
-
-Also verify Streamlit:
-
-```powershell
-streamlit --version
-```
-
----
-
-# 5. Dataset Setup
-
-SkinSight uses the **HAM10000 dataset**.
-
-The dataset is intentionally **not included in this GitHub repository** because of its size and dataset distribution considerations.
-
-Download the HAM10000 dataset separately.
-
-The expected structure is:
-
-```text
-data/
-└── raw/
-    ├── HAM10000_metadata.csv
-    └── images/
-        ├── ISIC_0024306.jpg
-        ├── ISIC_0024307.jpg
-        ├── ...
-        └── *.jpg
-```
-
-The metadata CSV must contain the required fields including:
-
-```text
-image_id
-dx
-```
-
-where `dx` represents the lesion class.
-
----
-
-# 6. Verify the Dataset
-
-After placing the dataset in `data/raw/`, run:
-
-```powershell
+```bash
 python src/data_preparation.py
 ```
 
-This checks/prepares the dataset and generates the required train/validation/test split files.
-
-The generated split files are:
+Expected output:
 
 ```text
 data/splits/train.csv
@@ -258,500 +193,155 @@ data/splits/val.csv
 data/splits/test.csv
 ```
 
-You can verify the splits with:
+## Train and evaluate
 
-```powershell
-Get-ChildItem .\data\splits
-```
+Train the two-stage EfficientNetB0 pipeline:
 
----
-
-# 7. Train the Model
-
-To train the EfficientNetB0 model:
-
-```powershell
+```bash
 python src/train.py
 ```
 
-The training pipeline includes:
+The pipeline loads the data, applies preprocessing and augmentation, calculates class weights, trains the classification head, fine-tunes the upper backbone layers, and exports the best model and history.
 
-1. Dataset loading
-2. Image preprocessing
-3. Data augmentation
-4. Class weighting
-5. EfficientNetB0 transfer learning
-6. Initial training
-7. Fine-tuning
-8. Model checkpointing
-9. Training-history generation
+Generate evaluation and training figures:
 
-The trained model is saved locally as:
-
-```text
-models/skinsight_efficientnetb0.keras
-```
-
-### Important
-
-The trained `.keras` model is excluded from Git using `.gitignore`.
-
-Therefore, a colleague cloning the repository will need to either:
-
-* train the model locally, or
-* obtain the trained model separately.
-
----
-
-# 8. Evaluate the Model
-
-After training, run:
-
-```powershell
+```bash
 python src/evaluate.py
-```
-
-Evaluation results are generated under:
-
-```text
-outputs/figures/
-```
-
-The project currently includes:
-
-```text
-confusion_matrix.png
-roc_curves.png
-```
-
----
-
-# 9. Generate Training Visualizations
-
-Run:
-
-```powershell
 python src/visualize_training.py
-```
-
-This generates:
-
-```text
-outputs/figures/training_accuracy.png
-outputs/figures/training_loss.png
-```
-
----
-
-# 10. Generate Dataset Visualizations
-
-To generate the class-distribution visualization:
-
-```powershell
 python src/visualize_dataset.py
-```
-
-The output is saved under:
-
-```text
-outputs/figures/class_distribution.png
-```
-
----
-
-# 11. Generate ROC Curves
-
-Run:
-
-```powershell
 python src/visualize_roc.py
 ```
 
-The generated ROC visualization is saved as:
+Outputs are written to [`outputs/figures/`](outputs/figures/).
 
-```text
-outputs/figures/roc_curves.png
+## Figure gallery
+
+### Training behavior
+
+The training curves combine both training stages into one epoch timeline.
+
+| Accuracy | Loss |
+| --- | --- |
+| ![Training and validation accuracy](outputs/figures/training_accuracy.png) | ![Training and validation loss](outputs/figures/training_loss.png) |
+
+### Evaluation and dataset views
+
+| Class distribution | Confusion matrix |
+| --- | --- |
+| ![HAM10000 class distribution](outputs/figures/class_distribution.png) | ![Confusion matrix](outputs/figures/confusion_matrix.png) |
+
+| ROC curves |
+| --- |
+| ![ROC curves](outputs/figures/roc_curves.png) |
+
+These are generated artifacts. If they are missing after a fresh clone, run the visualization commands above.
+
+## Command-line prediction
+
+Once the trained model exists, classify one image:
+
+```bash
+python src/predict.py --image data/raw/images/ISIC_0027419.jpg
 ```
 
----
+The command prints the class probabilities, predicted class, and model confidence. Exact values depend on the saved model and input image.
 
-# 12. Command-Line Prediction
+## Grad-CAM explainability
 
-Once the trained model exists, a single image can be classified using:
+Generate a Grad-CAM overlay:
 
-```powershell
-python src/predict.py --image .\data\raw\images\ISIC_0027419.jpg
+```bash
+python src/gradcam.py --image data/raw/images/ISIC_0027419.jpg
 ```
 
-Example output:
+The output is written to `outputs/gradcam/ISIC_0027419_gradcam.jpg`.
 
-```text
-SkinSight prediction
---------------------
-bkl   : 50.78%
-mel   : 40.14%
-nv    : 4.76%
-akiec : 2.61%
-bcc   : 1.27%
-df    : 0.41%
-vasc  : 0.04%
+Grad-CAM shows regions that contributed to the selected model output. It does not prove that those regions are medically causal or clinically meaningful.
 
-Predicted class: bkl
-Confidence: 50.78%
+## Run the Streamlit workspace
+
+Start the multipage application:
+
+```bash
+streamlit run app/streamlit_app.py
 ```
 
-The exact output will depend on the trained model and input image.
+The workspace includes:
 
----
+- **Analyze**: upload an image, view probabilities, inspect Grad-CAM, and download a JSON report
+- **Model performance**: view training curves and evaluation figures
+- **Dataset explorer**: inspect HAM10000 metadata and class balance when the CSV is available
+- **About the research**: read methodology and responsible-use notes
 
-# 13. Grad-CAM Explainability
+Switch between light and dark themes from **Settings → Theme** in the Streamlit menu.
 
-SkinSight includes Grad-CAM to visualize image regions contributing to the model prediction.
+## Testing and validation
 
-Run:
+Compile the Python modules:
 
-```powershell
-python src/gradcam.py --image .\data\raw\images\ISIC_0027419.jpg
+```bash
+python -m compileall src app
 ```
 
-A Grad-CAM image is generated under:
+Run a lightweight Streamlit smoke test:
 
-```text
-outputs/gradcam/
+```bash
+python - <<'PY'
+from streamlit.testing.v1 import AppTest
+
+app = AppTest.from_file("app/streamlit_app.py", default_timeout=60).run()
+assert not app.exception
+print("Streamlit smoke test passed")
+PY
 ```
 
-For example:
+Before submitting changes, confirm that:
 
-```text
-outputs/gradcam/ISIC_0027419_gradcam.jpg
-```
+- Python 3.10 is active
+- the application starts without import errors
+- image upload, prediction, probabilities, and Grad-CAM render
+- evaluation pages handle missing generated artifacts gracefully
+- generated datasets and model binaries are not accidentally committed
 
-The Grad-CAM visualization should be interpreted as a model-explainability visualization rather than evidence of a medical diagnosis.
+## Important artifacts
 
----
+| Artifact | Purpose |
+| --- | --- |
+| `models/skinsight_efficientnetb0.keras` | Saved EfficientNetB0 model |
+| `models/class_names.json` | Model output ordering |
+| `models/class_weights.json` | Training class weights |
+| `models/training_history.json` | Accuracy, loss, and validation history |
+| `outputs/figures/` | Evaluation and training figures |
+| `outputs/gradcam/` | Generated explainability overlays |
 
-# 14. Run the Streamlit Application
+Large datasets and trained model binaries are intentionally ignored by Git. Placeholder `.gitkeep` files preserve the expected directory structure.
 
-After the trained model is available, start the application:
+## Limitations and responsible use
 
-```powershell
-streamlit run app/app.py
-```
+- HAM10000 is a research dataset and does not represent every population, device, or clinical setting.
+- Class imbalance can hide weak performance on underrepresented categories.
+- A high probability is not diagnostic certainty.
+- Grad-CAM is an explanatory heuristic, not a causal explanation.
+- The model has not been validated for clinical deployment.
+- No prediction should replace assessment by a qualified medical professional.
 
-Streamlit will provide a local URL, normally similar to:
+## Contributing
 
-```text
-http://localhost:8501
-```
+Create a focused branch, make the smallest coherent change, and verify it before opening a pull request:
 
-Open the URL in a browser.
-
-The application allows the user to:
-
-1. Upload a dermatoscopic image
-2. View the uploaded image
-3. Generate the model prediction
-4. View the predicted class
-5. View model confidence
-6. View class probabilities
-7. View explainability information
-
----
-
-# 15. Current Model Output
-
-The application supports the following output classes:
-
-```text
-akiec
-bcc
-bkl
-df
-mel
-nv
-vasc
-```
-
-For example:
-
-```text
-Predicted Class: bkl
-Model Confidence: 50.78%
-```
-
-Confidence represents the model's predicted probability for the selected class. It should not be interpreted as clinical certainty.
-
----
-
-# 16. Important Files
-
-### Model
-
-```text
-models/skinsight_efficientnetb0.keras
-```
-
-Trained EfficientNetB0 model.
-
-### Class mapping
-
-```text
-models/class_names.json
-```
-
-Contains the class ordering used by the model.
-
-### Class weights
-
-```text
-models/class_weights.json
-```
-
-Stores class-weight information used during training.
-
-### Training history
-
-```text
-models/training_history.json
-```
-
-Contains recorded training metrics.
-
-### Prediction
-
-```text
-src/predict.py
-```
-
-Performs inference on a single image.
-
-### Grad-CAM
-
-```text
-src/gradcam.py
-```
-
-Generates explainability visualizations.
-
-### Streamlit application
-
-```text
-app/app.py
-```
-
-Runs the web interface.
-
----
-
-# 17. Git and Files Not Included in the Repository
-
-The following are intentionally excluded using `.gitignore`:
-
-```text
-data/raw/
-data/processed/
-data/splits/
-models/*.keras
-models/*.h5
-.venv/
-__pycache__/
-```
-
-This keeps large datasets, trained model binaries, and local environment files out of GitHub.
-
-The repository contains placeholder `.gitkeep` files where necessary to preserve the folder structure.
-
----
-
-# 18. Development Workflow
-
-For further development, the recommended workflow is:
-
-```text
-Clone repository
-       ↓
-Create virtual environment
-       ↓
-Install requirements
-       ↓
-Add HAM10000 dataset
-       ↓
-Prepare dataset
-       ↓
-Train / obtain trained model
-       ↓
-Evaluate model
-       ↓
-Run predictions
-       ↓
-Generate Grad-CAM
-       ↓
-Run Streamlit application
-       ↓
-Refine UI / model / explainability
-       ↓
-Test changes
-       ↓
-Commit changes
-       ↓
-Push to GitHub
-```
-
----
-
-# 19. Making Changes
-
-Before modifying the project, create a separate branch:
-
-```powershell
-git checkout -b refinement
-```
-
-After making changes:
-
-```powershell
+```bash
+git checkout -b improve-documentation
 git status
+git diff --check
+git add README.md
+git commit -m "docs: improve project documentation"
+git push -u origin improve-documentation
 ```
 
-Review the changed files:
+For model changes, include the dataset assumptions, training configuration, evaluation artifacts, and known limitations.
 
-```powershell
-git diff
-```
+## Dataset and repository notes
 
-Add the changes:
+Review the repository license and the HAM10000 dataset's own terms before redistribution or deployment. The dataset is not included in this repository.
 
-```powershell
-git add .
-```
-
-Commit:
-
-```powershell
-git commit -m "Refine SkinSight application"
-```
-
-Push the branch:
-
-```powershell
-git push -u origin refinement
-```
-
-For changes that are ready to be merged into `main`, create a Pull Request on GitHub.
-
----
-
-# 20. Testing Checklist
-
-Before considering a refinement complete, verify:
-
-### Environment
-
-```powershell
-python --version
-pip --version
-```
-
-### Python files
-
-```powershell
-python -m py_compile src\*.py
-```
-
-If wildcard compilation is not supported as expected in PowerShell, compile individual files or use:
-
-```powershell
-python -m compileall src
-```
-
-### Prediction
-
-```powershell
-python src\predict.py --image .\data\raw\images\ISIC_0027419.jpg
-```
-
-### Grad-CAM
-
-```powershell
-python src\gradcam.py --image .\data\raw\images\ISIC_0027419.jpg
-```
-
-### Streamlit
-
-```powershell
-streamlit run app\app.py
-```
-
-Confirm that:
-
-* The application starts without errors.
-* Image upload works.
-* Prediction is displayed.
-* Class probabilities are displayed.
-* Grad-CAM functionality works.
-* Existing model outputs are not accidentally broken.
-
----
-
-# 21. Refinement Goals
-
-The project is functional, but further refinement may include:
-
-* Improve Streamlit UI/UX
-* Integrate Grad-CAM directly into the application
-* Improve prediction result presentation
-* Add clearer class descriptions
-* Add model performance metrics
-* Display confusion matrix and ROC results in the application
-* Improve error handling
-* Add loading/progress indicators
-* Improve responsive layout
-* Add image validation
-* Improve documentation
-* Add automated testing
-* Improve code organization
-* Add deployment configuration if required
-* Improve accessibility and user guidance
-
-Any refinement should preserve the research/educational nature of the project and avoid presenting model predictions as medical diagnoses.
-
----
-
-# 22. Disclaimer
-
-SkinSight is an academic/research prototype developed for educational purposes.
-
-The system classifies dermatoscopic images using a machine-learning model trained on the HAM10000 dataset. Model predictions may be incorrect, and Grad-CAM visualizations do not establish causality or clinical significance.
-
-**SkinSight must not be used as a substitute for professional medical examination, diagnosis, or treatment.**
-
----
-
-## Repository
-
-GitHub:
-
-https://github.com/Balaji190605/SkinSight
-
----
-
-## Project Status
-
-Current implementation includes:
-
-* EfficientNetB0 transfer-learning model
-* Seven-class classification
-* Dataset preparation
-* Train/validation/test splits
-* Model training and fine-tuning
-* Model evaluation
-* Confusion matrix
-* ROC curves
-* Training curves
-* Class-distribution visualization
-* Command-line prediction
-* Grad-CAM generation
-* Streamlit application
-* GitHub repository setup
-
-Further work is focused on **application refinement, explainability integration, testing, documentation, and presentation quality**.
+Repository: [github.com/Balaji190605/SkinSight](https://github.com/Balaji190605/SkinSight)
