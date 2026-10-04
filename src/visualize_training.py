@@ -15,13 +15,30 @@ def load_history():
         return json.load(file)
 
 
+def combine_history(history, metric):
+    """Return a metric from flat history or concatenate both training stages."""
+    if metric in history:
+        return history[metric]
+
+    values = []
+    for stage in ("stage1", "stage2"):
+        values.extend(history.get(stage, {}).get(metric, []))
+    return values
+
+
 def main():
     history = load_history()
 
-    accuracy = history.get("accuracy", [])
-    val_accuracy = history.get("val_accuracy", [])
-    loss = history.get("loss", [])
-    val_loss = history.get("val_loss", [])
+    accuracy = combine_history(history, "accuracy")
+    val_accuracy = combine_history(history, "val_accuracy")
+    loss = combine_history(history, "loss")
+    val_loss = combine_history(history, "val_loss")
+
+    if not accuracy or not loss:
+        raise ValueError(
+            f"No training metrics found in {HISTORY_PATH}. "
+            "Expected flat metrics or stage1/stage2 history."
+        )
 
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
