@@ -1,0 +1,45 @@
+[theme]
+base = "light"
+primaryColor = "#0f766e"
+backgroundColor = "#f7f8f6"
+secondaryBackgroundColor = "#edf2ef"
+textColor = "#17211f"
+linkColor = "#0f766e"
+borderColor = "#d6dfdb"
+font = "'Plus Jakarta Sans':https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+headingFont = "'Plus Jakarta Sans':https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+baseRadius = "medium"
+buttonRadius = "medium"
+showWidgetBorder = true
+showSidebarBorder = true
+chartCategoricalColors = ["#0f766e", "#d97757", "#54708b", "#8c6a9e", "#b08a46", "#6b7c72", "#9f5960"]
+
+[theme.light]
+primaryColor = "#0f766e"
+backgroundColor = "#f7f8f6"
+secondaryBackgroundColor = "#edf2ef"
+textColor = "#17211f"
+linkColor = "#0f766e"
+borderColor = "#d6dfdb"
+chartCategoricalColors = ["#0f766e", "#d97757", "#54708b", "#8c6a9e", "#b08a46", "#6b7c72", "#9f5960"]
+
+[theme.dark]
+primaryColor = "#61b8aa"
+backgroundColor = "#101917"
+secondaryBackgroundColor = "#182522"
+textColor = "#e8f0ed"
+linkColor = "#61b8aa"
+borderColor = "#354b45"
+chartCategoricalColors = ["#61b8aa", "#e0a07f", "#8daec5", "#b89dc8", "#d0ac63", "#9eb5ab", "#cc8e96"]
+
+[theme.sidebar]
+backgroundColor = "#edf2ef"
+secondaryBackgroundColor = "#e4ece8"
+textColor = "#17211f"
+borderColor = "#d6dfdb"
+
+[theme.dark.sidebar]
+backgroundColor = "#182522"
+secondaryBackgroundColor = "#20312d"
+textColor = "#e8f0ed"
+borderColor = "#354b45"
