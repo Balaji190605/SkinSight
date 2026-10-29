@@ -1,18 +1,15 @@
 import json
 from pathlib import Path
 
+import altair as alt
 import cv2
 import numpy as np
 import pandas as pd
 import streamlit as st
 import tensorflow as tf
-import altair as alt
 from PIL import Image
 
-
-# ============================================================
 # PATHS AND CONFIGURATION
-# ============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,24 +61,22 @@ THEME_COLORS = {
 COLORS = THEME_COLORS[ACTIVE_THEME if ACTIVE_THEME in THEME_COLORS else "light"]
 
 
-# ============================================================
 # CUSTOM STYLING
-# ============================================================
 
 st.markdown(
     f"""
     <style>
     :root {{
-        --ss-ink: {COLORS['ink']};
-        --ss-muted: {COLORS['muted']};
-        --ss-accent: {COLORS['accent']};
-        --ss-accent-soft: {COLORS['accent_soft']};
-        --ss-accent-border: {COLORS['accent_border']};
-        --ss-accent-deep: {COLORS['accent_deep']};
-        --ss-surface: {COLORS['surface']};
-        --ss-surface-soft: {COLORS['surface_soft']};
-        --ss-border: {COLORS['border']};
-        --ss-warning: {COLORS['warning']};
+        --ss-ink: {COLORS["ink"]};
+        --ss-muted: {COLORS["muted"]};
+        --ss-accent: {COLORS["accent"]};
+        --ss-accent-soft: {COLORS["accent_soft"]};
+        --ss-accent-border: {COLORS["accent_border"]};
+        --ss-accent-deep: {COLORS["accent_deep"]};
+        --ss-surface: {COLORS["surface"]};
+        --ss-surface-soft: {COLORS["surface_soft"]};
+        --ss-border: {COLORS["border"]};
+        --ss-warning: {COLORS["warning"]};
     }}
     </style>
     """
@@ -199,16 +194,13 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
-# ============================================================
 # SIDEBAR
-# ============================================================
 
 with st.sidebar:
-
     st.title("SkinSight", icon=":material/health_and_safety:")
 
     st.caption(
@@ -247,24 +239,21 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.caption(
-        "SkinSight is intended for research and educational "
-        "demonstration only."
-    )
+    st.caption("SkinSight is intended for research and educational demonstration only.")
 
 
-# ============================================================
 # HEADER
-# ============================================================
 
 st.markdown(
-    '<div class="app-kicker">Explainable image analysis</div>',
-    unsafe_allow_html=True
+    '<div class="app-kicker">Explainable image analysis</div>', unsafe_allow_html=True
 )
 
 hero_copy, hero_meta = st.columns([1.55, 0.8], vertical_alignment="bottom")
 with hero_copy:
-    st.markdown('<h1 class="app-title">A clearer view of the model\'s answer.</h1>', unsafe_allow_html=True)
+    st.markdown(
+        '<h1 class="app-title">A clearer view of the model\'s answer.</h1>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         '<p class="app-subtitle">Upload a dermatoscopic image to see the predicted lesion class, probability distribution, and Grad-CAM explanation in one place.</p>',
         unsafe_allow_html=True,
@@ -278,244 +267,123 @@ with hero_meta:
 st.space("large")
 
 
-# ============================================================
 # MODEL LOADING
-# ============================================================
-
 @st.cache_resource
 def load_model():
 
-    return tf.keras.models.load_model(
-        MODEL_PATH
-    )
+    return tf.keras.models.load_model(MODEL_PATH)
 
 
-# ============================================================
 # CLASS NAME LOADING
-# ============================================================
+
 
 @st.cache_data
 def load_class_names():
 
-    with open(
-        CLASS_NAMES_PATH,
-        "r"
-    ) as f:
-
+    with open(CLASS_NAMES_PATH, "r") as f:
         return json.load(f)
 
 
-# ============================================================
 # IMAGE PREPROCESSING
-# ============================================================
+
 
 def preprocess(image):
 
-    image = image.convert(
-        "RGB"
-    ).resize(
-        IMG_SIZE,
-        resample=Image.Resampling.NEAREST
-    )
+    image = image.convert("RGB").resize(IMG_SIZE, resample=Image.Resampling.NEAREST)
 
-    array = np.asarray(
-        image,
-        dtype=np.float32
-    )
+    array = np.asarray(image, dtype=np.float32)
 
-    tensor = np.expand_dims(
-        array,
-        axis=0
-    )
+    tensor = np.expand_dims(array, axis=0)
 
     return tensor
 
 
-# ============================================================
 # GRAD-CAM LAYER
-# ============================================================
 
-def find_gradcam_layer(
-    base_model
-):
 
-    for layer in reversed(
-        base_model.layers
-    ):
+def find_gradcam_layer(base_model):
 
+    for layer in reversed(base_model.layers):
         try:
-
-            if len(
-                layer.output.shape
-            ) == 4:
-
+            if len(layer.output.shape) == 4:
                 return layer
 
         except Exception:
-
             pass
 
-    raise RuntimeError(
-        "Could not find a suitable Grad-CAM layer."
-    )
+    raise RuntimeError("Could not find a suitable Grad-CAM layer.")
 
 
-# ============================================================
 # GRAD-CAM GENERATION
-# ============================================================
 
-def generate_gradcam(
-    model,
-    image_tensor,
-    class_index
-):
 
-    base_model = model.get_layer(
-        "efficientnetb0"
-    )
+def generate_gradcam(model, image_tensor, class_index):
 
-    target_layer = find_gradcam_layer(
-        base_model
-    )
+    base_model = model.get_layer("efficientnetb0")
 
-    feature_model = tf.keras.Model(
-        inputs=base_model.input,
-        outputs=target_layer.output
-    )
+    target_layer = find_gradcam_layer(base_model)
+
+    feature_model = tf.keras.Model(inputs=base_model.input, outputs=target_layer.output)
 
     with tf.GradientTape() as tape:
+        conv_outputs = feature_model(image_tensor, training=False)
 
-        conv_outputs = feature_model(
-            image_tensor,
-            training=False
-        )
+        x = model.get_layer("global_average_pooling")(conv_outputs)
 
-        x = model.get_layer(
-            "global_average_pooling"
-        )(conv_outputs)
+        x = model.get_layer("dropout")(x, training=False)
 
-        x = model.get_layer(
-            "dropout"
-        )(
-            x,
-            training=False
-        )
+        predictions = model.get_layer("predictions")(x)
 
-        predictions = model.get_layer(
-            "predictions"
-        )(x)
+        class_score = predictions[:, class_index]
 
-        class_score = predictions[
-            :,
-            class_index
-        ]
-
-    gradients = tape.gradient(
-        class_score,
-        conv_outputs
-    )
+    gradients = tape.gradient(class_score, conv_outputs)
 
     if gradients is None:
+        raise RuntimeError("Gradients could not be calculated.")
 
-        raise RuntimeError(
-            "Gradients could not be calculated."
-        )
+    weights = tf.reduce_mean(gradients, axis=(1, 2))
 
-    weights = tf.reduce_mean(
-        gradients,
-        axis=(1, 2)
-    )
+    cam = tf.reduce_sum(conv_outputs * weights[:, None, None, :], axis=-1)
 
-    cam = tf.reduce_sum(
-        conv_outputs *
-        weights[:, None, None, :],
-        axis=-1
-    )
+    cam = tf.maximum(cam, 0)
 
-    cam = tf.maximum(
-        cam,
-        0
-    )
+    cam = cam / (tf.reduce_max(cam) + 1e-8)
 
-    cam = cam / (
-        tf.reduce_max(cam) + 1e-8
-    )
-
-    return (
-        cam[0].numpy(),
-        target_layer.name
-    )
+    return (cam[0].numpy(), target_layer.name)
 
 
-# ============================================================
 # CREATE GRAD-CAM OVERLAY
-# ============================================================
 
-def create_gradcam_overlay(
-    image,
-    heatmap
-):
 
-    original = np.asarray(
-        image.convert("RGB")
-    )
+def create_gradcam_overlay(image, heatmap):
 
-    original = cv2.cvtColor(
-        original,
-        cv2.COLOR_RGB2BGR
-    )
+    original = np.asarray(image.convert("RGB"))
 
-    heatmap = cv2.resize(
-        heatmap,
-        (
-            original.shape[1],
-            original.shape[0]
-        )
-    )
+    original = cv2.cvtColor(original, cv2.COLOR_RGB2BGR)
 
-    heatmap_uint8 = np.uint8(
-        255 * heatmap
-    )
+    heatmap = cv2.resize(heatmap, (original.shape[1], original.shape[0]))
 
-    colored_heatmap = cv2.applyColorMap(
-        heatmap_uint8,
-        cv2.COLORMAP_JET
-    )
+    heatmap_uint8 = np.uint8(255 * heatmap)
 
-    overlay = cv2.addWeighted(
-        original,
-        0.55,
-        colored_heatmap,
-        0.45,
-        0
-    )
+    colored_heatmap = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
 
-    overlay = cv2.cvtColor(
-        overlay,
-        cv2.COLOR_BGR2RGB
-    )
+    overlay = cv2.addWeighted(original, 0.55, colored_heatmap, 0.45, 0)
+
+    overlay = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB)
 
     return overlay
 
 
-# ============================================================
 # CHECK REQUIRED FILES
-# ============================================================
 
 if not MODEL_PATH.exists():
-
-    st.error(
-        f"Trained model not found:\n\n{MODEL_PATH}"
-    )
+    st.error(f"Trained model not found:\n\n{MODEL_PATH}")
 
     st.stop()
 
 
 if not CLASS_NAMES_PATH.exists():
-
-    st.error(
-        f"Class names file not found:\n\n{CLASS_NAMES_PATH}"
-    )
+    st.error(f"Class names file not found:\n\n{CLASS_NAMES_PATH}")
 
     st.stop()
 
@@ -523,12 +391,12 @@ if not CLASS_NAMES_PATH.exists():
 class_names = load_class_names()
 
 
-# ============================================================
 # IMAGE UPLOAD
-# ============================================================
 
 with st.container(border=True):
-    st.markdown('<h2 class="section-heading">Start with an image</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-heading">Start with an image</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         '<p class="section-copy">Use a clear JPG or PNG dermatoscopic image. The model resizes it to 224 × 224 pixels before inference.</p>',
         unsafe_allow_html=True,
@@ -540,20 +408,12 @@ with st.container(border=True):
     )
 
 
-# ============================================================
 # PROCESS IMAGE
-# ============================================================
 
 if uploaded:
-
-    image = Image.open(
-        uploaded
-    ).convert(
-        "RGB"
-    )
+    image = Image.open(uploaded).convert("RGB")
 
     st.caption(f"Loaded image: {uploaded.name}")
-
 
     with st.spinner("Running image analysis"):
         model = load_model()
@@ -561,49 +421,30 @@ if uploaded:
         probabilities = model.predict(tensor, verbose=0)[0]
     st.caption(":material/check_circle: Analysis ready")
 
-
-    # ========================================================
     # PREDICTION
-    # ========================================================
 
-    predicted_index = int(
-        np.argmax(probabilities)
-    )
+    predicted_index = int(np.argmax(probabilities))
 
-    predicted_class = class_names[
-        predicted_index
-    ]
+    predicted_class = class_names[predicted_index]
 
-    confidence = float(
-        probabilities[
-            predicted_index
-        ]
-    )
+    confidence = float(probabilities[predicted_index])
 
-    readable_prediction = CLASS_LABELS.get(
-        predicted_class,
-        predicted_class
-    )
+    readable_prediction = CLASS_LABELS.get(predicted_class, predicted_class)
 
-
-    # ========================================================
     # IMAGE + PREDICTION
-    # ========================================================
 
     st.space("large")
-    st.markdown('<h2 class="section-heading">Analysis result</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-heading">Analysis result</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         '<p class="section-copy">The result below reflects the model output for this image. It is not a clinical assessment.</p>',
         unsafe_allow_html=True,
     )
 
-    image_col, prediction_col = st.columns(
-        [1.1, 1]
-    )
-
+    image_col, prediction_col = st.columns([1.1, 1])
 
     with image_col:
-
         st.image(
             image,
             caption="Uploaded dermatoscopic image",
@@ -615,9 +456,7 @@ if uploaded:
             st.caption("Input image")
             st.write("The image is used only for this analysis session.")
 
-
     with prediction_col:
-
         st.markdown(
             f"""
             <div class="prediction-box">
@@ -627,7 +466,7 @@ if uploaded:
                 <div class="result-note">Confidence is the model's probability estimate, not a measure of diagnostic certainty.</div>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         st.write("")
@@ -640,50 +479,34 @@ if uploaded:
                 icon=":material/priority_high:",
             )
         else:
-            st.caption("The leading class has the strongest model probability for this image.")
+            st.caption(
+                "The leading class has the strongest model probability for this image."
+            )
 
-
-    # ========================================================
     # PROBABILITY TABLE
-    # ========================================================
 
     st.space("large")
-    st.markdown('<h2 class="section-heading">Probability profile</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-heading">Probability profile</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         '<p class="section-copy">A ranked view of how the model distributed its probability across all seven classes.</p>',
         unsafe_allow_html=True,
     )
 
-
     probability_df = pd.DataFrame(
         {
             "Class": class_names,
-            "Description": [
-                CLASS_LABELS.get(
-                    name,
-                    name
-                )
-                for name in class_names
-            ],
+            "Description": [CLASS_LABELS.get(name, name) for name in class_names],
             "Probability (%)": [
-                round(
-                    float(
-                        probability
-                    ) * 100,
-                    2
-                )
-                for probability in probabilities
-            ]
+                round(float(probability) * 100, 2) for probability in probabilities
+            ],
         }
     )
 
-
     probability_df = probability_df.sort_values(
-        "Probability (%)",
-        ascending=False
-    ).reset_index(
-        drop=True
-    )
+        "Probability (%)", ascending=False
+    ).reset_index(drop=True)
 
     st.markdown("#### Leading signals")
     with st.container(horizontal=True):
@@ -703,10 +526,7 @@ if uploaded:
         alt="Ranked probability table for the seven lesion classes",
     )
 
-
-    # ========================================================
     # PROBABILITY CHART
-    # ========================================================
 
     chart_df = probability_df[["Description", "Probability (%)"]]
     chart_max = max(100, float(chart_df["Probability (%)"].max()) + 8)
@@ -774,14 +594,13 @@ if uploaded:
             icon=":material/download:",
         )
 
-
-    # ========================================================
     # GRAD-CAM
-    # ========================================================
 
     st.space("large")
-    st.markdown('<h2 class="section-heading">Why the model looked there</h2>', unsafe_allow_html=True)
-
+    st.markdown(
+        '<h2 class="section-heading">Why the model looked there</h2>',
+        unsafe_allow_html=True,
+    )
 
     st.write(
         "Grad-CAM highlights image regions that contributed "
@@ -789,28 +608,14 @@ if uploaded:
         "areas with stronger influence on the selected class."
     )
 
-
     try:
+        heatmap, layer_name = generate_gradcam(model, tensor, predicted_index)
 
-        heatmap, layer_name = generate_gradcam(
-            model,
-            tensor,
-            predicted_index
-        )
+        overlay = create_gradcam_overlay(image, heatmap)
 
-        overlay = create_gradcam_overlay(
-            image,
-            heatmap
-        )
-
-
-        grad_col1, grad_col2 = st.columns(
-            2
-        )
-
+        grad_col1, grad_col2 = st.columns(2)
 
         with grad_col1:
-
             st.markdown("#### Original image")
 
             st.image(
@@ -819,9 +624,7 @@ if uploaded:
                 alt="Original uploaded dermatoscopic image",
             )
 
-
         with grad_col2:
-
             st.markdown("#### Grad-CAM visualization")
 
             st.image(
@@ -830,59 +633,32 @@ if uploaded:
                 alt="Grad-CAM heatmap overlay showing regions influencing the prediction",
             )
 
+        st.caption(f"Feature layer used for Grad-CAM: {layer_name}")
 
         st.caption(
-            f"Feature layer used for Grad-CAM: "
-            f"{layer_name}"
+            "Warmer regions indicate areas with stronger influence on the selected class. This visualization does not establish causality."
         )
-
-
-        st.caption("Warmer regions indicate areas with stronger influence on the selected class. This visualization does not establish causality.")
-
 
     except Exception as e:
+        st.error(f"Grad-CAM generation failed: {e}")
 
-        st.error(
-            f"Grad-CAM generation failed: {e}"
-        )
-
-
-    # ========================================================
     # MODEL INFORMATION
-    # ========================================================
 
     st.space("large")
-    st.markdown('<h2 class="section-heading">About the model</h2>', unsafe_allow_html=True)
-
-
-    info_col1, info_col2, info_col3 = st.columns(
-        3
+    st.markdown(
+        '<h2 class="section-heading">About the model</h2>', unsafe_allow_html=True
     )
 
+    info_col1, info_col2, info_col3 = st.columns(3)
 
     with info_col1:
-
-        st.metric(
-            "Architecture",
-            "EfficientNetB0"
-        )
-
+        st.metric("Architecture", "EfficientNetB0")
 
     with info_col2:
-
-        st.metric(
-            "Input Size",
-            "224 × 224"
-        )
-
+        st.metric("Input Size", "224 × 224")
 
     with info_col3:
-
-        st.metric(
-            "Classes",
-            "7"
-        )
-
+        st.metric("Classes", "7")
 
     st.caption(
         """
@@ -897,7 +673,9 @@ if uploaded:
     training_loss_path = ROOT / "outputs" / "figures" / "training_loss.png"
     if training_accuracy_path.exists() and training_loss_path.exists():
         with st.expander("Training history", icon=":material/monitoring:"):
-            st.caption("These curves show how the model changed during its two training stages.")
+            st.caption(
+                "These curves show how the model changed during its two training stages."
+            )
             history_col1, history_col2 = st.columns(2)
             with history_col1:
                 st.image(
@@ -926,7 +704,9 @@ if uploaded:
         with st.expander("Evaluation evidence", icon=":material/insights:"):
             st.caption("Reference figures from the held-out evaluation set.")
             evidence_columns = st.columns(len(available_evidence))
-            for column, (label, path) in zip(evidence_columns, available_evidence.items()):
+            for column, (label, path) in zip(
+                evidence_columns, available_evidence.items()
+            ):
                 with column:
                     st.image(
                         path,
@@ -935,10 +715,7 @@ if uploaded:
                         alt=label,
                     )
 
-
-    # ========================================================
     # DISCLAIMER
-    # ========================================================
 
     st.warning(
         "SkinSight is an educational and research prototype. Its predictions and Grad-CAM visualizations are not medical diagnoses and must not be used for clinical decision-making.",
@@ -947,7 +724,6 @@ if uploaded:
 
 
 else:
-
     st.space("large")
     st.markdown(
         '<div class="empty-panel"><strong>Ready when you are.</strong><br>Upload a dermatoscopic image above to begin analysis.</div>',

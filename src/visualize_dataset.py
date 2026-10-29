@@ -1,9 +1,7 @@
-
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
-from config import METADATA_PATH, FIGURE_DIR
-
+from config import FIGURE_DIR, METADATA_PATH
 
 CLASS_LABELS = {
     "akiec": "Actinic keratoses",
@@ -19,16 +17,9 @@ CLASS_LABELS = {
 def main():
     metadata = pd.read_csv(METADATA_PATH)
 
-    class_counts = (
-        metadata["dx"]
-        .value_counts()
-        .reindex(CLASS_LABELS.keys())
-    )
+    class_counts = metadata["dx"].value_counts().reindex(CLASS_LABELS.keys())
 
-    labels = [
-        f"{code.upper()}\n{CLASS_LABELS[code]}"
-        for code in class_counts.index
-    ]
+    labels = [f"{code.upper()}\n{CLASS_LABELS[code]}" for code in class_counts.index]
 
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 

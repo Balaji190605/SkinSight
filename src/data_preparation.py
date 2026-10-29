@@ -1,24 +1,22 @@
 import json
+
 import numpy as np
 import pandas as pd
-
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.utils.class_weight import compute_class_weight
 
 from config import (
-    METADATA_PATH,
-    SPLIT_DIR,
     CLASS_NAMES,
-    RANDOM_SEED,
+    METADATA_PATH,
     MODEL_DIR,
+    RANDOM_SEED,
+    SPLIT_DIR,
 )
 
 
 def main():
     if not METADATA_PATH.exists():
-        raise FileNotFoundError(
-            f"Metadata not found: {METADATA_PATH}"
-        )
+        raise FileNotFoundError(f"Metadata not found: {METADATA_PATH}")
 
     df = pd.read_csv(METADATA_PATH)
 
@@ -38,9 +36,7 @@ def main():
     print("\nClass distribution:")
     print(df["dx"].value_counts())
 
-    # ---------------------------------------------------------
     # LESION-AWARE 70 / 15 / 15 SPLIT
-    # ---------------------------------------------------------
     #
     # 20 stratified group folds:
     #
@@ -73,32 +69,20 @@ def main():
     val_folds = set(range(14, 17))
     test_folds = set(range(17, 20))
 
-    train_df = df[[
-        fold in train_folds for fold in fold_assignments
-    ]].copy()
+    train_df = df[[fold in train_folds for fold in fold_assignments]].copy()
 
-    val_df = df[[
-        fold in val_folds for fold in fold_assignments
-    ]].copy()
+    val_df = df[[fold in val_folds for fold in fold_assignments]].copy()
 
-    test_df = df[[
-        fold in test_folds for fold in fold_assignments
-    ]].copy()
+    test_df = df[[fold in test_folds for fold in fold_assignments]].copy()
 
-    # ---------------------------------------------------------
     # VERIFY ALL DATA WAS ASSIGNED
-    # ---------------------------------------------------------
 
     total = len(train_df) + len(val_df) + len(test_df)
 
     if total != len(df):
-        raise RuntimeError(
-            f"Split error: {total} images assigned out of {len(df)}."
-        )
+        raise RuntimeError(f"Split error: {total} images assigned out of {len(df)}.")
 
-    # ---------------------------------------------------------
     # VERIFY NO LESION LEAKAGE
-    # ---------------------------------------------------------
 
     train_lesions = set(train_df["lesion_id"])
     val_lesions = set(val_df["lesion_id"])
@@ -109,21 +93,15 @@ def main():
     val_test_overlap = val_lesions & test_lesions
 
     if train_val_overlap or train_test_overlap or val_test_overlap:
-        raise RuntimeError(
-            "Lesion leakage detected between train/validation/test."
-        )
+        raise RuntimeError("Lesion leakage detected between train/validation/test.")
 
-    # ---------------------------------------------------------
     # SAVE SPLITS
-    # ---------------------------------------------------------
 
     train_df.to_csv(SPLIT_DIR / "train.csv", index=False)
     val_df.to_csv(SPLIT_DIR / "val.csv", index=False)
     test_df.to_csv(SPLIT_DIR / "test.csv", index=False)
 
-    # ---------------------------------------------------------
     # CLASS WEIGHTS
-    # ---------------------------------------------------------
 
     weights = compute_class_weight(
         class_weight="balanced",
@@ -131,10 +109,7 @@ def main():
         y=train_df["dx"].values,
     )
 
-    class_weights = {
-        i: float(weight)
-        for i, weight in enumerate(weights)
-    }
+    class_weights = {i: float(weight) for i, weight in enumerate(weights)}
 
     with open(MODEL_DIR / "class_weights.json", "w") as f:
         json.dump(class_weights, f, indent=2)
@@ -142,9 +117,7 @@ def main():
     with open(MODEL_DIR / "class_names.json", "w") as f:
         json.dump(CLASS_NAMES, f, indent=2)
 
-    # ---------------------------------------------------------
     # REPORT
-    # ---------------------------------------------------------
 
     print("\n" + "=" * 60)
     print("LESION-AWARE DATA SPLIT")

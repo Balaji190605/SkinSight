@@ -8,24 +8,21 @@ from tensorflow.keras.callbacks import (
 )
 
 from config import (
-    SPLIT_DIR,
+    IMG_SIZE,
     MODEL_DIR,
     MODEL_PATH,
-    IMG_SIZE,
     NUM_CLASSES,
+    SPLIT_DIR,
 )
 from dataset import load_dataframe, make_dataset
 from model import build_model
-
 
 HISTORY_PATH = MODEL_DIR / "training_history.json"
 
 
 def compile_model(model, lr):
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(
-            learning_rate=lr
-        ),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
@@ -61,9 +58,7 @@ def main():
     print("SkinSight - EfficientNetB0 Training")
     print("=" * 60)
 
-    # ---------------------------------------------------------
     # LOAD DATA
-    # ---------------------------------------------------------
 
     train_df = load_dataframe(SPLIT_DIR / "train.csv")
     val_df = load_dataframe(SPLIT_DIR / "val.csv")
@@ -81,22 +76,15 @@ def main():
         training=False,
     )
 
-    # ---------------------------------------------------------
     # LOAD CLASS WEIGHTS
-    # ---------------------------------------------------------
 
     with open(MODEL_DIR / "class_weights.json") as f:
-        class_weights = {
-            int(k): float(v)
-            for k, v in json.load(f).items()
-        }
+        class_weights = {int(k): float(v) for k, v in json.load(f).items()}
 
     print("\nClass weights:")
     print(class_weights)
 
-    # ---------------------------------------------------------
     # BUILD MODEL
-    # ---------------------------------------------------------
 
     model, base = build_model(
         NUM_CLASSES,
@@ -106,10 +94,7 @@ def main():
     print("\nModel:")
     model.summary()
 
-    # ---------------------------------------------------------
-    # STAGE 1
-    # TRAIN CLASSIFICATION HEAD
-    # ---------------------------------------------------------
+    # STAGE 1: TRAIN CLASSIFICATION HEAD
 
     print("\n" + "=" * 60)
     print("STAGE 1: TRAINING CLASSIFICATION HEAD")
@@ -133,18 +118,13 @@ def main():
         callbacks=create_callbacks(),
     )
 
-    # ---------------------------------------------------------
     # LOAD BEST STAGE 1 MODEL
-    # ---------------------------------------------------------
 
     if MODEL_PATH.exists():
         model = tf.keras.models.load_model(MODEL_PATH)
         base = model.get_layer("efficientnetb0")
 
-    # ---------------------------------------------------------
-    # STAGE 2
-    # FINE-TUNE UPPER EFFICIENTNETB0 LAYERS
-    # ---------------------------------------------------------
+    # STAGE 2 FINE-TUNE UPPER EFFICIENTNETB0 LAYERS
 
     print("\n" + "=" * 60)
     print("STAGE 2: FINE-TUNING EFFICIENTNETB0")
@@ -187,16 +167,12 @@ def main():
         callbacks=create_callbacks(),
     )
 
-    # ---------------------------------------------------------
     # LOAD BEST CHECKPOINT
-    # ---------------------------------------------------------
 
     if MODEL_PATH.exists():
         model = tf.keras.models.load_model(MODEL_PATH)
 
-    # ---------------------------------------------------------
     # SAVE TRAINING HISTORY
-    # ---------------------------------------------------------
 
     history = {
         "stage1": {

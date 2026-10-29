@@ -1,11 +1,13 @@
-import pandas as pd
-import tensorflow as tf
 from pathlib import Path
 
-from config import IMAGE_DIR, IMG_SIZE, CLASS_NAMES, BATCH_SIZE
+import pandas as pd
+import tensorflow as tf
+
+from config import BATCH_SIZE, CLASS_NAMES, IMAGE_DIR, IMG_SIZE
 
 AUTOTUNE = tf.data.AUTOTUNE
 LABEL_MAP = {name: i for i, name in enumerate(CLASS_NAMES)}
+
 
 def _resolve_image_path(image_id):
     candidates = [
@@ -18,11 +20,13 @@ def _resolve_image_path(image_id):
             return str(p)
     return str(candidates[0])
 
+
 def load_dataframe(csv_path):
     df = pd.read_csv(csv_path)
     df["path"] = df["image_id"].apply(_resolve_image_path)
     df["label"] = df["dx"].map(LABEL_MAP)
     return df
+
 
 def decode_image(path, label, training=False):
     image = tf.io.read_file(path)
@@ -38,14 +42,10 @@ def decode_image(path, label, training=False):
 
     return image, tf.one_hot(label, len(CLASS_NAMES))
 
+
 def make_dataset(df, training=False, batch_size=BATCH_SIZE):
-    ds = tf.data.Dataset.from_tensor_slices(
-        (df["path"].values, df["label"].values)
-    )
+    ds = tf.data.Dataset.from_tensor_slices((df["path"].values, df["label"].values))
     if training:
         ds = ds.shuffle(len(df), seed=42, reshuffle_each_iteration=True)
-    ds = ds.map(
-        lambda p, y: decode_image(p, y, training),
-        num_parallel_calls=AUTOTUNE
-    )
+    ds = ds.map(lambda p, y: decode_image(p, y, training), num_parallel_calls=AUTOTUNE)
     return ds.batch(batch_size).prefetch(AUTOTUNE)

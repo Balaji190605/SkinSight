@@ -1,33 +1,30 @@
-import json
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import auc, roc_curve
 from sklearn.preprocessing import label_binarize
 
 from config import (
+    CLASS_NAMES,
+    FIGURE_DIR,
+    IMAGE_DIR,
+    IMG_SIZE,
     MODEL_PATH,
     SPLIT_DIR,
-    IMAGE_DIR,
-    CLASS_NAMES,
-    IMG_SIZE,
-    FIGURE_DIR,
 )
 
 
 def load_test_data():
     test_df = pd.read_csv(SPLIT_DIR / "test.csv")
 
-    image_paths = [
-        IMAGE_DIR / f"{image_id}.jpg"
-        for image_id in test_df["image_id"]
-    ]
+    image_paths = [IMAGE_DIR / f"{image_id}.jpg" for image_id in test_df["image_id"]]
 
-    labels = test_df["dx"].map(
-        {name: index for index, name in enumerate(CLASS_NAMES)}
-    ).values
+    labels = (
+        test_df["dx"]
+        .map({name: index for index, name in enumerate(CLASS_NAMES)})
+        .values
+    )
 
     return image_paths, labels
 
@@ -101,8 +98,7 @@ def main():
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title(
-        f"One-vs-Rest ROC Curves\n"
-        f"HAM10000 Test Set — Macro ROC-AUC = {macro_auc:.3f}"
+        f"One-vs-Rest ROC Curves\nHAM10000 Test Set — Macro ROC-AUC = {macro_auc:.3f}"
     )
 
     plt.legend(loc="lower right")

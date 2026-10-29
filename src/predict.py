@@ -1,9 +1,10 @@
 import argparse
-import json
+
 import numpy as np
 import tensorflow as tf
 
-from config import MODEL_PATH, CLASS_NAMES, IMG_SIZE
+from config import CLASS_NAMES, IMG_SIZE, MODEL_PATH
+
 
 def predict(image_path):
     model = tf.keras.models.load_model(MODEL_PATH)
@@ -22,6 +23,7 @@ def predict(image_path):
 
     print(f"\\nPredicted class: {CLASS_NAMES[order[0]]}")
     print(f"Confidence: {probabilities[order[0]] * 100:.2f}%")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

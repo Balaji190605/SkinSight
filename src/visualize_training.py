@@ -1,11 +1,8 @@
-
 import json
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from config import MODEL_DIR, FIGURE_DIR
-
+from config import FIGURE_DIR, MODEL_DIR
 
 HISTORY_PATH = MODEL_DIR / "training_history.json"
 

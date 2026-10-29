@@ -2,7 +2,6 @@ from pathlib import Path
 
 import streamlit as st
 
-
 ROOT = Path(__file__).resolve().parent
 
 st.set_page_config(
